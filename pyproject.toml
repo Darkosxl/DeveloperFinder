@@ -1,0 +1,25 @@
+[project]
+name = "verified_inviter"
+version = "0.1.0"
+description = "Verified Inviter Agent for exposureai.org"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+  "resend>=2.0",
+  "python-dotenv>=1.0",
+  "selectolax>=0.3",
+]
+
+[project.scripts]
+verified_inviter = "verified_inviter.main:main"
+
+[tool.setuptools]
+packages = ["verified_inviter", "verified_inviter.discovery"]
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

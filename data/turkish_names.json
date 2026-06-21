@@ -1,0 +1,26 @@
+{
+  "given_names": [
+    "ahmet", "mehmet", "mustafa", "ali", "hasan", "hüseyin", "ibrahim", "murat", "osman", "kemal",
+    "yusuf", "ömer", "ramazan", "halil", "süleyman", "abdullah", "mahmut", "recep", "fatih", "can",
+    "deniz", "emre", "kerem", "tolga", "serkan", "onur", "burak", "batuhan", "arda", "barış",
+    "berkay", "cenk", "çağlar", "çağrı", "cem", "cemal", "cengiz", "cüneyt", "doğan", "doğukan",
+    "ece", "ege", "ekrem", "elçin", "emir", "engin", "enes", "erdem", "erdi", "erdinç",
+    "ergün", "erhan", "erkan", "ertan", "ertuğrul", "fahri", "faruk", "ferhat", "fırat", "fuat",
+    "gökay", "gökberk", "gökhan", "görkem", "güçlü", "gürkan", "hakan", "haluk", "hamza", "harun",
+    "hatice", "hikmet", "hilmi", "hülya", "ilker", "ipek", "irfan", "ışık", "ışıl", "jale",
+    "kaan", "kadir", "kamer", "kayhan", "kazım", "kenan", "koray", "kürsat", "levent", "mert",
+    "metin", "mücahit", "mümtaz", "nadir", "nazım", "necati", "necmettin", "niyazi", "nurettin", "oğuz",
+    "oğuzhan", "okan", "olcay", "önder", "orkun", "özgür", "özkan", "pınar", "rami", "rıdvan",
+    "rıza", "sabri", "sadık", "safa", "salih", "samet", "sami", "savaş", "seçkin", "sedat",
+    "selçuk", "selim", "semih", "serdar", "serhat", "sezgin", "sinan", "şükrü", "tamer", "tayfun",
+    "taylan", "tayyip", "timur", "tolgahan", "tufan", "tuna", "tuncay", "turgay", "turgut", "ufuk",
+    "uğur", "umut", "utku", "yağız", "yakup", "yalçın", "yavuz", "yekta", "yerlikaya", "yiğit",
+    "yılmaz", "yunus", "zafer", "ziya", "zeynep", "ayşe", "fatma", "emine", "şerife", "sultan",
+    "hanife", "hacer", "fidan", "pelin", "sevgi", "yasemin", "nur", "selma", "büşra", "esra",
+    "özlem", "seda", "elif", "nilay", "gizem", "merve", "aslı", "dilek", "hande", "tuğçe",
+    "aylin", "selin", "ecem", "beyza", "damla", "melike", "rabia", "sude", "yaren", "azra",
+    "irem", "miray", "nisa", "sena", "ebrar", "defne", "derya", "esma", "feyza", "gülsüm"
+  ],
+  "surname_suffixes": ["oğlu", "oğullar", "zade", "gil", "lı", "li", "lu", "lü"],
+  "diacritic_chars": "ı ş ç ğ ü ö İ Ş Ç Ğ Ü Ö"
+}
