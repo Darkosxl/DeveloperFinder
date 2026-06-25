@@ -23,7 +23,7 @@ from verified_inviter import config
 from verified_inviter.auth import configure_auth, require_auth
 from verified_inviter.email_send import send_invite_by_id
 from verified_inviter.scheduler import SCHEDULER
-from verified_inviter.store import init_db
+from verified_inviter.store import _SCHEMA, init_db
 
 app = Flask(__name__)
 app.secret_key = config.FLASK_SECRET_KEY
@@ -42,9 +42,12 @@ def _get_db() -> sqlite3.Connection:
     if "db" not in g:
         db_path = Path(config.DB_PATH)
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        g.db = sqlite3.connect(db_path)
+        g.db = sqlite3.connect(str(db_path))
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA busy_timeout = 30000")
+        # Ensure tables exist on every new connection (bulletproof)
+        g.db.executescript(_SCHEMA)
+        g.db.commit()
     return g.db
 
 
