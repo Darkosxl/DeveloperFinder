@@ -23,12 +23,17 @@ from verified_inviter import config
 from verified_inviter.auth import configure_auth, require_auth
 from verified_inviter.email_send import send_invite_by_id
 from verified_inviter.scheduler import SCHEDULER
+from verified_inviter.store import init_db
 
 app = Flask(__name__)
 app.secret_key = config.FLASK_SECRET_KEY
 app.config["PREFERRED_URL_SCHEME"] = "https"
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 configure_auth(app)
+
+# Ensure the SQLite database and schema exist on startup.
+with app.app_context():
+    init_db(config.DB_PATH).close()
 
 TRUNCATE_LEN = 140
 

@@ -9,10 +9,9 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml ./
+# Copy everything and install — non-editable so static/templates are packaged
 COPY . .
-
-RUN pip install --upgrade pip && pip install -e .
+RUN pip install --upgrade pip && pip install .
 
 EXPOSE 8000
 

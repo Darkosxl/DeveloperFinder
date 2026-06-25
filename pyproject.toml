@@ -22,7 +22,7 @@ dashboard = "verified_inviter.dashboard:main"
 packages = ["verified_inviter", "verified_inviter.discovery"]
 
 [tool.setuptools.package-data]
-verified_inviter = ["templates/*.html", "static/*"]
+verified_inviter = ["templates/*.html", "static/*.css", "static/*.js"]
 
 [tool.uv]
 package = true
