@@ -235,6 +235,95 @@ def list_user_repos(client: httpx.Client, username: str) -> list[Repo]:
     return repos
 
 
+def compute_commit_activity(
+    client: httpx.Client,
+    username: str,
+    days: int = 90,
+) -> dict[str, Any]:
+    """Compute commit/work-ethic metrics from the public events API.
+
+    Fetches up to 300 events (GitHub's max) and counts PushEvents and total
+    events within the last ``days`` days. Returns a dict with:
+      - total_events: int
+      - push_events: int (PushEvent count, each push can contain many commits)
+      - total_commits: int (sum of ``distinct_size`` across PushEvents)
+      - window_days: int (actual span of fetched events, capped at ``days``)
+      - commits_per_day: float (total_commits / window_days)
+      - events_per_day: float
+
+    On API errors, returns zeros so the pipeline doesn't crash.
+    """
+    total_events = 0
+    push_events = 0
+    total_commits = 0
+    earliest: datetime | None = None
+    latest: datetime | None = None
+
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=days)
+
+    try:
+        for page in range(1, 11):  # 10 pages × 30 = 300 events max
+            response = client.get(
+                f"{_GITHUB_API_BASE}/users/{username}/events/public",
+                headers=_github_headers(),
+                params={"per_page": 30, "page": page},
+                timeout=30.0,
+            )
+            if response.status_code in {404, 403}:
+                logger.warning(
+                    "Events API unavailable for commit activity",
+                    extra={"username": username, "status": response.status_code},
+                )
+                break
+            if response.status_code >= 500:
+                break
+            response.raise_for_status()
+            events = response.json()
+            if not events:
+                break
+
+            for event in events:
+                created_at = event.get("created_at")
+                if not created_at:
+                    continue
+                event_time = _parse_github_timestamp(created_at)
+                if event_time < cutoff:
+                    continue
+
+                total_events += 1
+                if earliest is None or event_time < earliest:
+                    earliest = event_time
+                if latest is None or event_time > latest:
+                    latest = event_time
+
+                if event.get("type") == "PushEvent":
+                    push_events += 1
+                    payload = event.get("payload") or {}
+                    total_commits += payload.get("distinct_size", 0) or 0
+
+            if len(events) < 30:
+                break
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "Failed to compute commit activity",
+            extra={"username": username, "error": str(exc)},
+        )
+
+    if earliest and latest:
+        window_days = max(1, (latest - earliest).days)
+    else:
+        window_days = days
+
+    return {
+        "total_events": total_events,
+        "push_events": push_events,
+        "total_commits": total_commits,
+        "window_days": window_days,
+        "commits_per_day": round(total_commits / window_days, 2) if window_days else 0.0,
+        "events_per_day": round(total_events / window_days, 2) if window_days else 0.0,
+    }
+
+
 def infer_candidates_from_github(client: httpx.Client) -> list[Candidate]:
     """Discover Turkey-based GitHub users and build ``Candidate`` objects.
 

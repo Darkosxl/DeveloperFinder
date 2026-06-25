@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Overview — Verified Inviter{% endblock %}
+{% block content %}
+<h1>Overview</h1>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="value">{{ stats.total_candidates }}</div>
+    <div class="label">Candidates</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ stats.total_invites }}</div>
+    <div class="label">Invites</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ stats.sent_invites }}</div>
+    <div class="label">Sent</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ stats.drafted_invites }}</div>
+    <div class="label">Drafted</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ stats.worth_a_damn }}</div>
+    <div class="label">Worth a damn</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ stats.skipped }}</div>
+    <div class="label">Skipped</div>
+  </div>
+</div>
+
+<h2>Scheduler</h2>
+<div class="card scheduler-panel">
+  <div class="scheduler-row">
+    <div class="scheduler-info">
+      <div class="scheduler-line">
+        <span class="scheduler-label">Status</span>
+        <span id="scheduler-status" class="badge badge-gray">Loading…</span>
+      </div>
+      <div class="scheduler-line">
+        <span class="scheduler-label">Last run</span>
+        <span id="scheduler-last-run" class="mono">—</span>
+      </div>
+      <div class="scheduler-line">
+        <span class="scheduler-label">Next run</span>
+        <span id="scheduler-next-run" class="mono">—</span>
+      </div>
+    </div>
+    <div class="scheduler-actions">
+      <button id="btn-start" class="btn" type="button">Start</button>
+      <button id="btn-stop" class="btn" type="button">Stop</button>
+      <button id="btn-run-now" class="btn btn-primary" type="button">Run Now</button>
+    </div>
+  </div>
+</div>
+
+<h2>Runs</h2>
+<div class="card">
+  {% if runs %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Started</th>
+          <th>Finished</th>
+          <th>Candidates</th>
+          <th>Repos</th>
+          <th>Drafted</th>
+          <th>Sent</th>
+          <th>Dry run</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <td class="mono">{{ run.run_date }}</td>
+          <td>{{ run.started_at }}</td>
+          <td>{{ run.finished_at or '—' }}</td>
+          <td class="mono">{{ run.candidates_seen }}</td>
+          <td class="mono">{{ run.repos_judged }}</td>
+          <td class="mono">{{ run.invites_drafted }}</td>
+          <td class="mono">{{ run.invites_sent }}</td>
+          <td>
+            {% if run.dry_run %}<span class="badge badge-yellow">dry</span>{% else %}<span class="badge badge-green">live</span>{% endif %}
+          </td>
+          <td>
+            {% if run.error %}
+              <span class="badge badge-red">error</span>
+            {% elif run.finished_at %}
+              <span class="badge badge-green">done</span>
+            {% else %}
+              <span class="badge badge-yellow">running</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No runs yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const statusEl = document.getElementById('scheduler-status');
+  const lastRunEl = document.getElementById('scheduler-last-run');
+  const nextRunEl = document.getElementById('scheduler-next-run');
+  const btnStart = document.getElementById('btn-start');
+  const btnStop = document.getElementById('btn-stop');
+  const btnRunNow = document.getElementById('btn-run-now');
+
+  function fmtDate(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (isNaN(d)) return value;
+    return d.toLocaleString();
+  }
+
+  function updateStatus(data) {
+    const running = data.running;
+    statusEl.textContent = running ? 'Running' : 'Stopped';
+    statusEl.className = 'badge ' + (running ? 'badge-green' : 'badge-red');
+    lastRunEl.textContent = fmtDate(data.last_run_time);
+    nextRunEl.textContent = running ? fmtDate(data.next_run_time) : '—';
+  }
+
+  async function loadStatus() {
+    try {
+      const res = await fetch('/api/scheduler/status');
+      const data = await res.json();
+      updateStatus(data);
+    } catch (err) {
+      statusEl.textContent = 'Error';
+      statusEl.className = 'badge badge-red';
+      console.error('scheduler status failed', err);
+    }
+  }
+
+  async function postAction(url) {
+    try {
+      const res = await fetch(url, { method: 'POST' });
+      const data = await res.json();
+      updateStatus(data);
+    } catch (err) {
+      console.error('scheduler action failed', err);
+      loadStatus();
+    }
+  }
+
+  btnStart.addEventListener('click', () => postAction('/api/scheduler/start'));
+  btnStop.addEventListener('click', () => postAction('/api/scheduler/stop'));
+  btnRunNow.addEventListener('click', () => postAction('/api/scheduler/run-now'));
+
+  loadStatus();
+  setInterval(loadStatus, 30000);
+})();
+</script>
+{% endblock %}

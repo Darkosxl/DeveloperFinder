@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Login — DeveloperFinder Dashboard{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card card">
+    <h1>DeveloperFinder Dashboard</h1>
+    <p class="muted">Sign in to view runs, candidates, and emails.</p>
+    <a class="google-button" href="{{ url_for('auth.login_google') }}">
+      Sign in with Google
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.login-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  padding: 20px;
+}
+.login-card {
+  text-align: center;
+  max-width: 360px;
+  width: 100%;
+}
+.login-card h1 {
+  margin-bottom: 8px;
+}
+.login-card p {
+  margin-bottom: 24px;
+}
+.google-button {
+  display: inline-block;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  font-size: 14px;
+}
+.google-button:hover {
+  text-decoration: none;
+  background: oklch(0.88 0.005 260);
+}
+</style>
+{% endblock %}

@@ -308,6 +308,18 @@ def create_invite_draft(conn: sqlite3.Connection, draft: DraftEmail) -> int:
     return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
 
+def get_invite_by_id(conn: sqlite3.Connection, invite_id: int) -> dict | None:
+    row = conn.execute(
+        """
+        SELECT id, canonical_id, ref_token, recipient_email, sender, subject, body,
+               email_path, matched_company, status
+        FROM invites WHERE id = ?
+        """,
+        (invite_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def list_pending_invites(conn: sqlite3.Connection, run_date: date) -> list[dict]:
     rows = conn.execute(
         """

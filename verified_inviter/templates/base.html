@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Verified Inviter{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block styles %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">Verified Inviter</div>
+      {% if session.get('authenticated') %}
+      <nav class="tabs">
+        {% set active = active_tab|default('overview') %}
+        <a href="{{ url_for('overview') }}" class="{% if active == 'overview' %}active{% endif %}">Overview</a>
+        <a href="{{ url_for('candidates') }}" class="{% if active == 'candidates' %}active{% endif %}">Candidates</a>
+        <a href="{{ url_for('verdicts') }}" class="{% if active == 'verdicts' %}active{% endif %}">Verdicts</a>
+        <a href="{{ url_for('emails') }}" class="{% if active == 'emails' %}active{% endif %}">Emails</a>
+        <a href="{{ url_for('matches') }}" class="{% if active == 'matches' %}active{% endif %}">Matches</a>
+      </nav>
+      <div class="user-nav">
+        <span class="email">{{ session.get('email') }}</span>
+        <a href="{{ url_for('auth.logout') }}">Logout</a>
+      </div>
+      {% endif %}
+    </div>
+  </header>
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -8,13 +8,21 @@ dependencies = [
   "resend>=2.0",
   "python-dotenv>=1.0",
   "selectolax>=0.3",
+  "flask>=3.0",
+  "authlib>=1.0",
+  "apscheduler>=3.10",
+  "gunicorn>=22.0",
 ]
 
 [project.scripts]
 verified_inviter = "verified_inviter.main:main"
+dashboard = "verified_inviter.dashboard:main"
 
 [tool.setuptools]
 packages = ["verified_inviter", "verified_inviter.discovery"]
+
+[tool.setuptools.package-data]
+verified_inviter = ["templates/*.html", "static/*"]
 
 [tool.uv]
 package = true

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Verdicts — Verified Inviter{% endblock %}
+{% block content %}
+<h1>Technical Verdicts</h1>
+
+<div class="card">
+  {% if verdicts %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Candidate</th>
+          <th>Verdict</th>
+          <th>Criteria met</th>
+          <th>Confidence</th>
+          <th>Reasoning</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in verdicts %}
+        <tr>
+          <td>
+            <div class="mono small">{{ v.canonical_id }}</div>
+            {% if v.display_name %}<div class="small muted">{{ v.display_name }}</div>{% endif %}
+          </td>
+          <td>
+            {% if v.verdict == 'worth_a_damn' %}
+              <span class="badge badge-green">worth a damn</span>
+            {% elif v.verdict == 'skip' %}
+              <span class="badge badge-red">skip</span>
+            {% else %}
+              <span class="badge badge-gray">{{ v.verdict }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if v.criteria_list %}
+              {% for criterion in v.criteria_list %}
+                <span class="badge badge-green">{{ criterion }}</span>{% if not loop.last %} {% endif %}
+              {% endfor %}
+            {% else %}
+              <span class="badge badge-gray">none</span>
+            {% endif %}
+          </td>
+          <td class="mono">{{ v.confidence or '—' }}</td>
+          <td>
+            {% if v.reasoning %}
+            <div class="reasoning" id="reason-{{ v.canonical_id }}">
+              <span class="truncated">{{ v.reasoning_truncated }}</span>
+              <span class="full">{{ v.reasoning }}</span>
+              <button class="toggle" onclick="toggle('reason-{{ v.canonical_id }}')">more</button>
+            </div>
+            {% else %}—{% endif %}
+          </td>
+          <td class="small">{{ v.created_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No verdicts yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggle(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('expanded');
+    const btn = el.querySelector('.toggle');
+    btn.textContent = el.classList.contains('expanded') ? 'less' : 'more';
+  }
+</script>
+{% endblock %}

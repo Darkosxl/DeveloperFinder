@@ -9,3 +9,5 @@ __pycache__
 uv.lock
 *.egg-info/
 .eggs/
+venv/
+credentials.json

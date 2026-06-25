@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Candidates — Verified Inviter{% endblock %}
+{% block content %}
+<h1>Candidates</h1>
+
+<div class="card">
+  {% if candidates %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Source</th>
+          <th>Display name</th>
+          <th>GitHub</th>
+          <th>HuggingFace</th>
+          <th>First seen</th>
+          <th>Last seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in candidates %}
+        <tr>
+          <td class="mono small">{{ c.canonical_id }}</td>
+          <td><span class="badge badge-gray">{{ c.source }}</span></td>
+          <td>{{ c.display_name or '—' }}</td>
+          <td class="mono">
+            {% if c.github_username %}
+              <a href="https://github.com/{{ c.github_username }}" target="_blank" rel="noopener">{{ c.github_username }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td class="mono">
+            {% if c.hf_username %}
+              <a href="https://huggingface.co/{{ c.hf_username }}" target="_blank" rel="noopener">{{ c.hf_username }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td class="small">{{ c.first_seen_at }}</td>
+          <td class="small">{{ c.last_seen_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No candidates yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

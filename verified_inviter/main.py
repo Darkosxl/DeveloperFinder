@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from verified_inviter import config, email_send
+from verified_inviter import config
 from verified_inviter.discovery import github, huggingface
 from verified_inviter.email_draft import draft_email_for_candidate
 from verified_inviter.knowledge import extract_knowledge_for_candidate
@@ -32,6 +32,7 @@ from verified_inviter.technical_judge import (
     append_reject_to_outbox,
     run_technical_judge_for_candidate,
 )
+from verified_inviter.discovery.github import compute_commit_activity
 from verified_inviter.content_fetch import fetch_contents_for_relevant_repos
 
 logger = logging.getLogger(__name__)
@@ -153,9 +154,14 @@ def process_candidate(
         logger.exception("knowledge extraction failed", extra={"canonical_id": candidate.canonical_id})
         return None
 
-    # Stage 6: technical judge
+    # Stage 6: technical judge (with commit activity metric)
+    commit_activity = compute_commit_activity(
+        github_client, candidate.github_username or ""
+    )
     try:
-        verdict = run_technical_judge_for_candidate(llm, conn, candidate, repos)
+        verdict = run_technical_judge_for_candidate(
+            llm, conn, candidate, repos, commit_activity=commit_activity
+        )
     except Exception as exc:
         logger.exception("technical judge failed", extra={"canonical_id": candidate.canonical_id})
         return None
@@ -233,12 +239,8 @@ def run_daily(dry_run: bool) -> None:
                             break
 
                 increment_run_stats(conn, run_date, invites_drafted=len(accepted))
-                sent, failed = email_send.send_pending_invites(
-                    conn, dry_run, config.OUTBOX_DIR, config.DAILY_INVITE_CAP
-                )
-                increment_run_stats(conn, run_date, invites_sent=sent)
 
-                logger.info("run finished", extra={"sent": sent, "failed": failed})
+                logger.info("run finished", extra={"drafted": len(accepted)})
                 finish_run(conn, run_date, datetime.now(), error=None)
             finally:
                 llm.close()

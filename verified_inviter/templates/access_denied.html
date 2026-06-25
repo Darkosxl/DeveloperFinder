@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Access Denied — DeveloperFinder Dashboard{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card card">
+    <h1>Access Denied</h1>
+    <p class="muted">
+      The Google account <strong class="mono">{{ email }}</strong> is not allowed to access this dashboard.
+    </p>
+    <a href="{{ url_for('auth.login') }}">Back to login</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.login-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  padding: 20px;
+}
+.login-card {
+  text-align: center;
+  max-width: 360px;
+  width: 100%;
+}
+.login-card h1 {
+  color: var(--red);
+  margin-bottom: 8px;
+}
+.login-card p {
+  margin-bottom: 24px;
+}
+</style>
+{% endblock %}

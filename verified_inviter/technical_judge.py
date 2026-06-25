@@ -33,14 +33,18 @@ Evidence:
 All repository metadata (relevant repos marked):
 {all_repo_lines}
 
+Commit activity (last ~90 days, from public events):
+{commit_activity}
+
 HuggingFace signal (if any):
 {hf_text}
 
-Evaluate against these four criteria. A strong pass on any one is enough; mediocre-tiling across all four is not enough:
+Evaluate against these five criteria. A strong pass on any one is enough; mediocre-tiling across all five is not enough:
 1. Open source contributions that matter — meaningful PRs/commits to notable upstream projects (not typo fixes or README edits).
 2. Personal projects that are quite technical and ambitious — real engineering depth, not boilerplate or AI-generated slop.
 3. Personal projects that have garnered stars / people are actually using — community traction signals real utility.
 4. HuggingFace models / fine-tunes / datasets that many people have downloaded or favorited — clear adoption signal.
+5. Sustained work ethic — commits frequently and consistently, averaging roughly 3+ commits per day over the available activity window. A person who shows up and ships every day is high-potential even without stars or fame yet. They will grow fast.
 
 Also consider the seed-stage lens: someone already famous (e.g. >~1000 followers or viral repos, broad internet recognition) is hard to recruit — we prefer emerging talent who are still building leverage.
 
@@ -96,8 +100,22 @@ def _build_judge_prompt(
     knowledge: Knowledge,
     repo_verdicts: list[RepoVerdict],
     all_repos_metadata: list[Repo],
+    commit_activity: dict | None = None,
 ) -> str:
     profile = candidate.profile_json
+
+    if commit_activity:
+        ca = commit_activity
+        commit_text = (
+            f"Total commits (last {ca.get('window_days', 90)} days): {ca.get('total_commits', 0)}\n"
+            f"Commits per day: {ca.get('commits_per_day', 0.0)}\n"
+            f"Push events: {ca.get('push_events', 0)}\n"
+            f"Total events: {ca.get('total_events', 0)}\n"
+            f"Events per day: {ca.get('events_per_day', 0.0)}"
+        )
+    else:
+        commit_text = "(not available)"
+
     return _USER_TEMPLATE.format(
         github_username=candidate.github_username or "(unknown)",
         display_name=candidate.display_name or "(unknown)",
@@ -109,6 +127,7 @@ def _build_judge_prompt(
         technologies=", ".join(knowledge.technologies) if knowledge.technologies else "(none)",
         evidence_lines=_build_evidence_lines(knowledge),
         all_repo_lines=_build_all_repo_lines(all_repos_metadata, repo_verdicts),
+        commit_activity=commit_text,
         hf_text=_build_hf_text(candidate),
     )
 
@@ -119,11 +138,12 @@ def judge_technical_quality(
     knowledge: Knowledge,
     repo_verdicts: list[RepoVerdict],
     all_repos_metadata: list[Repo],
+    commit_activity: dict | None = None,
 ) -> TechnicalVerdict:
     """Call the technical judge LLM and return a TechnicalVerdict."""
     response = llm.chat_json(
         system=_SYSTEM,
-        user=_build_judge_prompt(candidate, knowledge, repo_verdicts, all_repos_metadata),
+        user=_build_judge_prompt(candidate, knowledge, repo_verdicts, all_repos_metadata, commit_activity),
         temperature=config.TECH_JUDGE_TEMP,
     )
 
@@ -148,6 +168,7 @@ def run_technical_judge_for_candidate(
     store: sqlite3.Connection,
     candidate: Candidate,
     all_repos_metadata: list[Repo],
+    commit_activity: dict | None = None,
 ) -> TechnicalVerdict:
     """Fetch artifacts, run the technical judge, and persist the verdict."""
     knowledge = get_knowledge(store, candidate.canonical_id)
@@ -171,6 +192,7 @@ def run_technical_judge_for_candidate(
         knowledge,
         repo_verdicts,
         all_repos_metadata,
+        commit_activity=commit_activity,
     )
     insert_or_replace_technical_verdict(store, verdict)
     return verdict

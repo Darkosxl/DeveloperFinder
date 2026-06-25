@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Emails — Verified Inviter{% endblock %}
+{% block content %}
+<h1>Invites</h1>
+
+<div class="card">
+  {% if invites %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Status</th>
+          <th>Recipient</th>
+          <th>Candidate</th>
+          <th>Matched company</th>
+          <th>Subject</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invites %}
+        <tr>
+          <td class="mono"><a href="{{ url_for('email_detail', invite_id=inv.id) }}">#{{ inv.id }}</a></td>
+          <td>
+            {% if inv.status == 'sent' %}
+              <span class="badge badge-green">sent</span>
+            {% elif inv.status == 'drafted' %}
+              <span class="badge badge-yellow">drafted</span>
+            {% elif inv.status == 'bounced' %}
+              <span class="badge badge-red">bounced</span>
+            {% elif inv.status == 'failed' %}
+              <span class="badge badge-orange">failed</span>
+            {% else %}
+              <span class="badge badge-gray">{{ inv.status }}</span>
+            {% endif %}
+          </td>
+          <td class="mono small">{{ inv.recipient_email or '—' }}</td>
+          <td>
+            <div class="mono small">{{ inv.canonical_id }}</div>
+            {% if inv.display_name %}<div class="small muted">{{ inv.display_name }}</div>{% endif %}
+          </td>
+          <td>{{ inv.matched_company or '—' }}</td>
+          <td><a href="{{ url_for('email_detail', invite_id=inv.id) }}">{{ inv.subject or '—' }}</a></td>
+          <td class="small">{{ inv.created_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No invites yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Email #{{ invite.id }} — Verified Inviter{% endblock %}
+{% block content %}
+<a href="{{ url_for('emails') }}" class="back-link">← Back to invites</a>
+<h1>Invite #{{ invite.id }}</h1>
+
+<div class="meta-grid">
+  <div class="meta-item">
+    <div class="key">Status</div>
+    <div class="value">
+      {% if invite.status == 'sent' %}
+        <span class="badge badge-green">sent</span>
+      {% elif invite.status == 'drafted' %}
+        <span class="badge badge-yellow">drafted</span>
+      {% elif invite.status == 'bounced' %}
+        <span class="badge badge-red">bounced</span>
+      {% elif invite.status == 'failed' %}
+        <span class="badge badge-orange">failed</span>
+      {% else %}
+        <span class="badge badge-gray">{{ invite.status }}</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="meta-item">
+    <div class="key">Recipient</div>
+    <div class="value mono">{{ invite.recipient_email or '—' }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="key">Candidate</div>
+    <div class="value">
+      <div class="mono small">{{ invite.canonical_id }}</div>
+      {% if invite.display_name %}<div class="small muted">{{ invite.display_name }}</div>{% endif %}
+    </div>
+  </div>
+  <div class="meta-item">
+    <div class="key">Matched company</div>
+    <div class="value">{{ invite.matched_company or '—' }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="key">Sender</div>
+    <div class="value mono small">{{ invite.sender or '—' }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="key">Created</div>
+    <div class="value">{{ invite.created_at }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="key">Sent at</div>
+    <div class="value">{{ invite.sent_at or '—' }}</div>
+  </div>
+  <div class="meta-item">
+    <div class="key">Bounces</div>
+    <div class="value mono">{{ invite.bounce_count }}</div>
+  </div>
+</div>
+
+<h2>Subject</h2>
+<p>{{ invite.subject or '—' }}</p>
+
+{% if invite.status == 'drafted' %}
+<form action="{{ url_for('send_email', invite_id=invite.id) }}" method="post" class="send-form">
+  <button type="submit" class="btn btn-primary" onclick="return confirm('Send this email?');">
+    Send Email
+  </button>
+</form>
+{% endif %}
+
+<h2>Body</h2>
+{% if invite.body %}
+<div class="email-body">{{ invite.body }}</div>
+{% else %}
+<div class="empty">No body available.</div>
+{% endif %}
+{% endblock %}

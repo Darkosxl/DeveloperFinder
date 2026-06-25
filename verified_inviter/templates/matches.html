@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Matches — Verified Inviter{% endblock %}
+{% block content %}
+<h1>Company Matches</h1>
+
+<div class="card">
+  {% if matches %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Candidate</th>
+          <th>Matched company</th>
+          <th>Confidence</th>
+          <th>Reasoning</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in matches %}
+        <tr>
+          <td>
+            <div class="mono small">{{ m.canonical_id }}</div>
+            {% if m.display_name %}<div class="small muted">{{ m.display_name }}</div>{% endif %}
+          </td>
+          <td>{{ m.match_company or '—' }}</td>
+          <td class="mono">{{ m.confidence or '—' }}</td>
+          <td>
+            {% if m.why %}
+            <div class="reasoning" id="reason-{{ m.canonical_id }}">
+              <span class="truncated">{{ m.why_truncated }}</span>
+              <span class="full">{{ m.why }}</span>
+              <button class="toggle" onclick="toggle('reason-{{ m.canonical_id }}')">more</button>
+            </div>
+            {% else %}—{% endif %}
+          </td>
+          <td class="small">{{ m.created_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No matches yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggle(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('expanded');
+    const btn = el.querySelector('.toggle');
+    btn.textContent = el.classList.contains('expanded') ? 'less' : 'more';
+  }
+</script>
+{% endblock %}

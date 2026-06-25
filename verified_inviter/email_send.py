@@ -16,6 +16,7 @@ import resend
 from verified_inviter import config
 from verified_inviter.models import Candidate
 from verified_inviter.store import (
+    get_invite_by_id,
     list_pending_invites,
     mark_invite_bounced,
     mark_invite_sent,
@@ -196,6 +197,37 @@ def parse_bounce(send_error: Exception) -> tuple[bool, str]:
 
     # Fallback: unknown errors are treated as soft so we retry once.
     return True, reason
+
+
+def send_invite_by_id(conn, invite_id: int) -> tuple[bool, str]:
+    """Send a single drafted invite by ID. Returns (success, message)."""
+    invite = get_invite_by_id(conn, invite_id)
+    if invite is None:
+        return False, "Invite not found"
+
+    status = invite.get("status")
+    if status != "drafted":
+        return False, f"Cannot send invite with status '{status}'"
+
+    if not invite.get("recipient_email"):
+        mark_invite_bounced(conn, invite_id, is_soft=False)
+        return False, "No recipient email on file"
+
+    if config.DRY_RUN:
+        outbox_dir = config.OUTBOX_DIR / f"draft-{date.today().isoformat()}"
+        write_dry_run_draft(invite, outbox_dir)
+        mark_invite_sent(conn, invite_id, datetime.now())
+        return True, "Dry-run draft written"
+
+    try:
+        client = resend.Client(api_key=config.RESEND_API_KEY)
+        send_invite_resend(client, invite)
+        mark_invite_sent(conn, invite_id, datetime.now())
+        return True, "Email sent"
+    except Exception as exc:
+        is_soft, reason = parse_bounce(exc)
+        mark_invite_bounced(conn, invite_id, is_soft)
+        return False, f"Send failed: {reason}"
 
 
 def send_pending_invites(
