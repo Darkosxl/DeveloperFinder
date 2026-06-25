@@ -66,21 +66,25 @@ def _wait_for_rate_limit_reset(response: httpx.Response) -> None:
         pass
 
 
-def search_turkey_users(
-    client: httpx.Client,
-    per_page: int = 100,
-    max_pages: int = 5,
-) -> list[dict[str, Any]]:
-    """Search GitHub users located in Turkey.
+_TURKEY_LOCATIONS = [
+    "Turkey",
+    "Istanbul",
+    "Ankara",
+    "Izmir",
+    "Bursa",
+    "Antalya",
+    "Konya",
+]
 
-    Uses the GitHub Search API with a disjunction of location queries. Returns
-    the raw ``items`` dicts. Stops early if rate-limit headroom is exhausted or
-    if a page comes back empty / incomplete.
-    """
-    query = (
-        "location:Turkey OR location:Türkey OR location:Istanbul "
-        "OR location:Ankara OR location:Izmir"
-    )
+
+def _search_location(
+    client: httpx.Client,
+    location: str,
+    per_page: int,
+    max_pages: int,
+) -> list[dict[str, Any]]:
+    """Search GitHub users for a single location string."""
+    query = f"type:user location:{location} repos:>3"
     items: list[dict[str, Any]] = []
     for page in range(1, max_pages + 1):
         response = client.get(
@@ -93,6 +97,12 @@ def search_turkey_users(
             },
             timeout=30.0,
         )
+        if response.status_code == 422:
+            logger.warning(
+                "GitHub search returned 422",
+                extra={"location": location, "body": response.text[:500]},
+            )
+            break
         if response.status_code == 403 and not _check_rate_limit_headroom(response):
             _wait_for_rate_limit_reset(response)
             continue
@@ -100,19 +110,40 @@ def search_turkey_users(
         data = response.json()
         page_items = data.get("items", [])
         if not page_items or data.get("incomplete_results"):
-            logger.warning(
-                "GitHub search stopped early",
-                extra={"page": page, "reason": "incomplete_results" if data.get("incomplete_results") else "empty"},
-            )
             break
         items.extend(page_items)
         if not _check_rate_limit_headroom(response):
             logger.warning(
                 "GitHub search stopping early due to rate-limit headroom",
-                extra={"page": page, "remaining": response.headers.get("x-ratelimit-remaining")},
+                extra={"location": location, "remaining": response.headers.get("x-ratelimit-remaining")},
             )
             break
     return items
+
+
+def search_turkey_users(
+    client: httpx.Client,
+    per_page: int = 100,
+    max_pages: int = 5,
+) -> list[dict[str, Any]]:
+    """Search GitHub users located in Turkey.
+
+    Runs separate searches per Turkish city/location (GitHub's search API does
+    not support OR between location qualifiers) and merges the results,
+    de-duplicating by username.
+    """
+    seen: set[str] = set()
+    all_items: list[dict[str, Any]] = []
+    for location in _TURKEY_LOCATIONS:
+        logger.info("searching GitHub users", extra={"location": location})
+        items = _search_location(client, location, per_page, max_pages)
+        for item in items:
+            username = item.get("login")
+            if username and username not in seen:
+                seen.add(username)
+                all_items.append(item)
+    logger.info("GitHub search complete", extra={"total_users": len(all_items)})
+    return all_items
 
 
 def get_user_profile(client: httpx.Client, username: str) -> dict[str, Any]:
