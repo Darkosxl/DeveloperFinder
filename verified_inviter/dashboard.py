@@ -17,6 +17,7 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from verified_inviter import config
 from verified_inviter.auth import configure_auth, require_auth
@@ -25,6 +26,8 @@ from verified_inviter.scheduler import SCHEDULER
 
 app = Flask(__name__)
 app.secret_key = config.FLASK_SECRET_KEY
+app.config["PREFERRED_URL_SCHEME"] = "https"
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 configure_auth(app)
 
 TRUNCATE_LEN = 140
