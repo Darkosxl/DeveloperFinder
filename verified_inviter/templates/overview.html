@@ -55,6 +55,18 @@
   </div>
 </div>
 
+<div id="progress-panel" class="card progress-panel" style="display:none;">
+  <div class="progress-header">
+    <span id="progress-stage" class="progress-stage">—</span>
+    <span id="progress-counter" class="progress-counter mono"></span>
+  </div>
+  <div class="progress-bar-wrap">
+    <div id="progress-bar" class="progress-bar" style="width:0%"></div>
+  </div>
+  <div id="progress-candidate" class="progress-candidate mono"></div>
+  <div id="progress-log" class="progress-log"></div>
+</div>
+
 <h2>Runs</h2>
 <div class="card">
   {% if runs %}
@@ -115,6 +127,12 @@
   const btnStart = document.getElementById('btn-start');
   const btnStop = document.getElementById('btn-stop');
   const btnRunNow = document.getElementById('btn-run-now');
+  const progressPanel = document.getElementById('progress-panel');
+  const progressStage = document.getElementById('progress-stage');
+  const progressCounter = document.getElementById('progress-counter');
+  const progressBar = document.getElementById('progress-bar');
+  const progressCandidate = document.getElementById('progress-candidate');
+  const progressLog = document.getElementById('progress-log');
 
   function fmtDate(value) {
     if (!value) return '—';
@@ -131,11 +149,44 @@
     nextRunEl.textContent = running ? fmtDate(data.next_run_time) : '—';
   }
 
+  function updateProgress(p) {
+    if (!p || !p.active) {
+      progressPanel.style.display = 'none';
+      return;
+    }
+    progressPanel.style.display = 'block';
+    progressStage.textContent = p.stage || 'Working...';
+
+    const total = p.candidate_total || 0;
+    const idx = p.candidate_index || 0;
+    if (total > 0) {
+      progressCounter.textContent = idx + ' / ' + total;
+      progressBar.style.width = Math.round((idx / total) * 100) + '%';
+    } else {
+      progressCounter.textContent = '';
+      progressBar.style.width = '5%';
+    }
+
+    progressCandidate.textContent = p.candidate ? '→ ' + p.candidate : '';
+
+    if (p.log && p.log.length > 0) {
+      const lastEntries = p.log.slice(-8).reverse();
+      progressLog.innerHTML = lastEntries.map(function(entry) {
+        var cls = 'log-entry';
+        if (entry.startsWith('✅')) cls += ' log-success';
+        else if (entry.startsWith('❌')) cls += ' log-error';
+        else if (entry.startsWith('⏭')) cls += ' log-skip';
+        return '<div class="' + cls + '">' + entry + '</div>';
+      }).join('');
+    }
+  }
+
   async function loadStatus() {
     try {
       const res = await fetch('/api/scheduler/status');
       const data = await res.json();
       updateStatus(data);
+      if (data.progress) updateProgress(data.progress);
     } catch (err) {
       statusEl.textContent = 'Error';
       statusEl.className = 'badge badge-red';
@@ -148,10 +199,34 @@
       const res = await fetch(url, { method: 'POST' });
       const data = await res.json();
       updateStatus(data);
+      if (data.progress) updateProgress(data.progress);
+      // If run-now, start polling fast
+      if (url.includes('run-now') && data.progress && data.progress.active) {
+        fastPoll();
+      }
     } catch (err) {
       console.error('scheduler action failed', err);
       loadStatus();
     }
+  }
+
+  let fastInterval = null;
+  function fastPoll() {
+    if (fastInterval) clearInterval(fastInterval);
+    fastInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/scheduler/progress');
+        const p = await res.json();
+        updateProgress(p);
+        if (!p.active) {
+          clearInterval(fastInterval);
+          fastInterval = null;
+          loadStatus(); // refresh scheduler status
+        }
+      } catch (err) {
+        console.error('progress poll failed', err);
+      }
+    }, 2000);
   }
 
   btnStart.addEventListener('click', () => postAction('/api/scheduler/start'));
@@ -160,6 +235,11 @@
 
   loadStatus();
   setInterval(loadStatus, 30000);
+
+  // Check if a run is already in progress on page load
+  fetch('/api/scheduler/progress').then(r => r.json()).then(p => {
+    if (p.active) fastPoll();
+  });
 })();
 </script>
 {% endblock %}

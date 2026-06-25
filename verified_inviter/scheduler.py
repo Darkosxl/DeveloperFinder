@@ -29,6 +29,14 @@ class Scheduler:
             "last_run_status": None,
             "last_run_error": None,
         }
+        self._progress: dict[str, Any] = {
+            "active": False,
+            "stage": "",
+            "candidate": None,
+            "candidate_index": 0,
+            "candidate_total": 0,
+            "log": [],
+        }
         self._job_id = "run_daily_job"
 
     def _update_next_run(self) -> None:
@@ -40,6 +48,21 @@ class Scheduler:
                 else None
             )
 
+    def update_progress(self, stage: str = "", candidate: str | None = None,
+                        candidate_index: int = 0, candidate_total: int = 0,
+                        log_entry: str | None = None) -> None:
+        with self._lock:
+            if stage:
+                self._progress["stage"] = stage
+            if candidate is not None:
+                self._progress["candidate"] = candidate
+            self._progress["candidate_index"] = candidate_index or self._progress["candidate_index"]
+            self._progress["candidate_total"] = candidate_total or self._progress["candidate_total"]
+            if log_entry:
+                self._progress["log"].append(log_entry)
+                # Keep last 50 entries
+                self._progress["log"] = self._progress["log"][-50:]
+
     def _job(self) -> None:
         # Lazy import to avoid circular imports at module load time.
         from verified_inviter import main
@@ -48,10 +71,16 @@ class Scheduler:
             self._state["last_run_time"] = datetime.now(timezone.utc)
             self._state["last_run_status"] = "running"
             self._state["last_run_error"] = None
+            self._progress["active"] = True
+            self._progress["stage"] = "starting"
+            self._progress["candidate"] = None
+            self._progress["candidate_index"] = 0
+            self._progress["candidate_total"] = 0
+            self._progress["log"] = []
 
         try:
             logger.info("scheduled pipeline run started")
-            main.run_daily(config.DRY_RUN)
+            main.run_daily(config.DRY_RUN, progress_callback=self.update_progress)
             with self._lock:
                 self._state["last_run_status"] = "success"
         except Exception as exc:
@@ -60,6 +89,8 @@ class Scheduler:
                 self._state["last_run_status"] = "failed"
                 self._state["last_run_error"] = str(exc)
         finally:
+            with self._lock:
+                self._progress["active"] = False
             self._update_next_run()
 
     def is_running(self) -> bool:
@@ -100,7 +131,11 @@ class Scheduler:
     def status(self) -> dict[str, Any]:
         self._update_next_run()
         with self._lock:
-            return self._state.copy()
+            return {**self._state, "progress": self._progress.copy()}
+
+    def progress(self) -> dict[str, Any]:
+        with self._lock:
+            return self._progress.copy()
 
 
 SCHEDULER = Scheduler()

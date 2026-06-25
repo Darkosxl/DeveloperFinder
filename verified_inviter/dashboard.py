@@ -344,6 +344,11 @@ def health():
 def scheduler_status():
     return jsonify(SCHEDULER.status())
 
+@app.route("/api/scheduler/progress")
+@require_auth
+def scheduler_progress():
+    return jsonify(SCHEDULER.progress())
+
 
 @app.route("/api/scheduler/start", methods=["POST"])
 @require_auth

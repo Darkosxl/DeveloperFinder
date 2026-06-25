@@ -7,7 +7,7 @@ import logging.handlers
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -119,16 +119,24 @@ def process_candidate(
     exa_client: httpx.Client,
     candidate: Candidate,
     companies: list[dict],
+    progress: Callable | None = None,
 ) -> DraftEmail | None:
     """Run one candidate through stages 3→8 and return the drafted email if any."""
+    def _p(stage: str, **kw):
+        if progress:
+            progress(stage=stage, candidate=candidate.github_username or candidate.canonical_id, **kw)
+
     upsert_candidate(conn, candidate)
 
     # Stage 3: repo relevance judging
+    _p("Fetching repos")
     repos = github.list_user_repos(github_client, candidate.github_username or "")
     if not repos:
         logger.info("no recent repos for candidate", extra={"canonical_id": candidate.canonical_id})
+        _p("Skipped — no recent repos", log_entry=f"⏭ {candidate.github_username}: no recent repos")
         return None
 
+    _p(f"Judging {len(repos)} repos")
     verdicts = judge_repos_for_candidate(llm, candidate, repos)
     insert_repo_verdicts(conn, verdicts)
     increment_run_stats(conn, date.today(), repos_judged=len(verdicts))
@@ -138,9 +146,11 @@ def process_candidate(
     )]
     if not relevant_repos:
         logger.info("no relevant repos for candidate", extra={"canonical_id": candidate.canonical_id})
+        _p("Skipped — no relevant repos", log_entry=f"⏭ {candidate.github_username}: no relevant repos")
         return None
 
     # Stage 4: fetch contents for relevant repos
+    _p(f"Fetching content for {len(relevant_repos)} repos")
     contents = fetch_contents_for_relevant_repos(
         exa_client,
         relevant_repos,
@@ -148,22 +158,27 @@ def process_candidate(
     )
 
     # Stage 5: knowledge extraction
+    _p("Extracting knowledge")
     try:
         knowledge = extract_knowledge_for_candidate(llm, conn, candidate, relevant_repos, contents)
     except Exception as exc:
         logger.exception("knowledge extraction failed", extra={"canonical_id": candidate.canonical_id})
+        _p("Failed — knowledge extraction", log_entry=f"❌ {candidate.github_username}: knowledge extraction failed")
         return None
 
     # Stage 6: technical judge (with commit activity metric)
+    _p("Computing commit activity")
     commit_activity = compute_commit_activity(
         github_client, candidate.github_username or ""
     )
+    _p("Technical judging")
     try:
         verdict = run_technical_judge_for_candidate(
             llm, conn, candidate, repos, commit_activity=commit_activity
         )
     except Exception as exc:
         logger.exception("technical judge failed", extra={"canonical_id": candidate.canonical_id})
+        _p("Failed — technical judge", log_entry=f"❌ {candidate.github_username}: technical judge failed")
         return None
 
     if verdict.verdict != "worth_a_damn" or not verdict.seed_stage:
@@ -171,27 +186,33 @@ def process_candidate(
             "technical judge rejected candidate",
             extra={"canonical_id": candidate.canonical_id, "reasoning": verdict.reasoning},
         )
+        _p("Skipped — technical judge", log_entry=f"⏭ {candidate.github_username}: rejected by technical judge")
         append_reject_to_outbox(candidate.canonical_id, candidate.github_username, verdict)
         return None
 
     # Stage 7: company matching
+    _p("Matching company")
     try:
         match = run_match_for_candidate(llm, conn, candidate, config.COMPANIES_PATH)
     except Exception as exc:
         logger.exception("company matching failed", extra={"canonical_id": candidate.canonical_id})
+        _p("Failed — company matching", log_entry=f"❌ {candidate.github_username}: company matching failed")
         return None
 
     # Stage 8: email drafting
+    _p("Drafting email")
     try:
         draft = draft_email_for_candidate(llm, conn, candidate, companies)
     except Exception as exc:
         logger.exception("email drafting failed", extra={"canonical_id": candidate.canonical_id})
+        _p("Failed — email drafting", log_entry=f"❌ {candidate.github_username}: email drafting failed")
         return None
 
+    _p("Done — email drafted", log_entry=f"✅ {candidate.github_username}: email drafted")
     return draft
 
 
-def run_daily(dry_run: bool) -> None:
+def run_daily(dry_run: bool, progress: Callable | None = None) -> None:
     """Main entry point for a daily run."""
     run_date = date.today()
     conn = init_db(config.DB_PATH)
@@ -210,18 +231,29 @@ def run_daily(dry_run: bool) -> None:
             )
             try:
                 companies = load_companies(config.COMPANIES_PATH)
+                if progress:
+                    progress(stage="Discovering candidates", log_entry="🔍 Searching GitHub + HuggingFace...")
                 candidates = discover_candidates(clients["github"], clients["hf"])
                 increment_run_stats(conn, run_date, candidates_seen=len(candidates))
+                if progress:
+                    progress(stage=f"Found {len(candidates)} candidates", log_entry=f"📋 Discovered {len(candidates)} candidates")
 
                 accepted: list[DraftEmail] = []
-                for candidate in candidates[:config.MAX_CANDIDATES_PER_RUN]:
+                process_list = candidates[:config.MAX_CANDIDATES_PER_RUN]
+                for i, candidate in enumerate(process_list):
+                    if progress:
+                        progress(stage="Processing", candidate=candidate.github_username or candidate.canonical_id,
+                                 candidate_index=i + 1, candidate_total=len(process_list))
                     if is_blocked_for_processing(conn, candidate.canonical_id, config.SKIP_REJUDGE_DAYS):
                         logger.info("candidate blocked", extra={"canonical_id": candidate.canonical_id})
+                        if progress:
+                            progress(log_entry=f"⏭ {candidate.github_username}: blocked (recently processed)")
                         continue
 
                     try:
                         draft = process_candidate(
-                            conn, llm, clients["github"], clients["exa"], candidate, companies
+                            conn, llm, clients["github"], clients["exa"], candidate, companies,
+                            progress=progress,
                         )
                     except Exception as exc:
                         logger.exception(
